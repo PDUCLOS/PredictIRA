@@ -1,0 +1,233 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f9f9f9;
+}
+
+.navbar {
+    background-color: white;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 10px 50px;
+    font-size: 1.5em;
+}
+
+.navbar-brand {
+    font-size: 1.5em;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #333;
+}
+
+.navbar-brand img {
+    height: 60px;
+}
+
+.navbar-nav {
+    display: flex;
+    gap: 20px;
+}
+
+.navbar-nav .nav-item .nav-link {
+    font-size: 1em;
+    font-weight: 600;
+    background-color: #007bff;
+    padding: 5px 25px;
+    border-radius: 8px;
+    color: white;
+    transition: all 0.3s ease-in-out;
+}
+
+.navbar-nav .nav-item .nav-link:hover {
+    background-color: #0056b3;
+    color: white;
+}
+
+.hero-section {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    max-width: 1200px;
+    margin: auto;
+    padding: 50px 50px;
+    height: auto;
+    gap: 30px;
+    text-align: center;
+}
+
+.hero-content {
+    max-width: 70%;
+}
+
+h1 {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: #333;
+}
+
+p {
+    font-size: 1.5em;
+    color: #555;
+    margin: 40px;
+}
+
+.btn-primary {
+    font-size: 1.8em;
+    padding: 5px 35px;
+    background-color: #007bff;
+    border-radius: 8px;
+    color: white;
+    text-decoration: none;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+.hero-image img {
+    max-width: 500px;
+    height: auto;
+}
+
+.container {
+    max-width: 2000px;
+}
+
+.form-section {
+    margin-top: 40px;
+    margin-bottom: 100px;
+    padding: 50px;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    font-size: 3em;
+}
+
+.form-label {
+    font-size: 1em;
+    font-weight: bold;
+    color: #333;
+    padding-left: 5px;
+}
+
+.form-control {
+    font-size: 1em;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    border: 2px solid #ccc;
+}
+
+/* .btn-predict, .btn-validate {
+    font-size: 1.7em;
+    padding: 10px 90px;
+    border-radius: 8px;
+    font-weight: bold;
+    background-color: #007bff;
+    color: white;
+    border: none;
+}
+
+.btn-predict:hover, .btn-validate:hover {
+    opacity: 0.85;
+} */
+
+#prediction-result {
+    font-size: 2.8em;
+    font-weight: bold;
+    color: #333;
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* AJOUT */
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f9f9f9;
+}
+
+.container {
+    max-width: 1200px;
+    margin: auto;
+}
+
+.form-section {
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+}
+
+.selection-section {
+    background: lightgrey;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.prediction-block {
+    background: lightgrey;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+.google-trends, .polluants, .autres {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.google-trendstitle, .polluantstitle, .autrestitle {
+    margin-bottom: 10px;
+}
+
+h2, h3 {
+    text-align: left;
+    color: #333;
+    font-weight: bold;
+}
+
+table {
+    width: 100%;
+}
+
+/* .btn {
+    font-size: 1.2em;
+    font-weight: bold;
+} */
+
+.btn-predict, .btn-validate {
+    font-size: 1.2em;
+    padding: 10px 90px;
+    border-radius: 8px;
+    font-weight: bold;
+    background-color: #007bff;
+    color: white;
+    border: none;
+}
+
+.btn-predict:hover, .btn-validate:hover {
+    opacity: 0.85;
+}
+
+.tooltip-icon {
+    cursor: pointer;
+    font-size: 1em;
+    color: #3697eb;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin-right: 0px;
+    vertical-align: middle;
+}
+
+.tooltip-icon:hover {
+    color: #175797;
+}
