@@ -10,7 +10,7 @@
   <p align="center">
     Une application pour analyser et prédire les Infections Respiratoires Aiguës (IRA) à l'aide d'un modèle de Machine Learning.
     <br />
-    <a href="https://github.com/ya-repillez/IRA_Project"><strong>Explorer la documentation »</strong></a>
+    <a href="https://github.com/PDUCLOS/PREDICTIRA/"><strong>Explorer la documentation »</strong></a>
     <br />
     <br />
   </p>
