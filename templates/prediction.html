@@ -125,7 +125,7 @@
         }
         
         const deptSelect = document.getElementById("deptSelect");
-        const departments = [{ code: 1, name: "Ain" }, { code: 3, name: "Allier" }, { code: 7, name: "Ardèche" }, { code: 15, name: "Cantal" }, { code: 26, name: "Drôme" }, { code: 38, name: "Isère" }, { code: 42, name: "Loire" }, { code: 43, name: "Haute-Loire" }, { code: 63, name: "Puy-de-Dôme" }, { code: 69, name: "Rhône" }, { code: 73, name: "Savoie" }, { code: 74, name: "Haute-Savoie" }];
+        const departments = {{ departements.items() | map("list") | list | tojson }}.map(([code, name]) => ({ code, name }));
         
         departments.forEach(dept => {
             const option = document.createElement("option");
@@ -141,7 +141,7 @@
 
             document.getElementById("dept").value = dept;
             document.getElementById("year").value = year;
-            document.getElementById("week_cos").value = week;
+            document.getElementById("week_cos").value = Math.cos(2 * Math.PI * week / 52);  // encodage cyclique du modèle
 
             // Construire l'URL avec les trois paramètres
             let url = `/get_data/${dept}/${year}/${week}`;
@@ -150,12 +150,15 @@
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
+                    const box = document.getElementById("prediction-result");
+                    box.innerHTML = data.error ? `<span style='color: red;'>${data.error}</span>` : "";
                     console.log("Données récupérées :", data); // Vérifier les valeurs récupérées
                     Object.keys(data).forEach(key => {
                         let input = document.getElementById(key);
                         if (input) {
                             input.value = data[key];
                         }
+                        window.observed = data.nb_passage_IRA;
                     });
                 })
                 .catch(error => console.error("Erreur lors de la récupération des données:", error));
@@ -172,11 +175,20 @@
         
             let result = await response.json();
             document.getElementById("prediction-result").innerHTML = 
-                result.prediction ? 
-                `Passages IRA prédit : <strong>${result.prediction}</strong>` : 
+                result.prediction !== undefined ? 
+                `Passages IRA prédit : <strong>${result.prediction}</strong>` +
+                    (window.observed !== undefined ? ` <span class="text-muted">(observé dans les données : ${window.observed})</span>` : "") : 
                 `<span style='color: red;'>Erreur : ${result.error}</span>`;
         };
         
+        // Lien partageable : /predict?dept=69&week=5 préremplit puis lance la prédiction
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("dept") && params.get("week")) {
+            deptSelect.value = params.get("dept");
+            weekSelect.value = params.get("week");
+            document.getElementById("validate-btn").click();
+            setTimeout(() => document.getElementById("prediction-form").requestSubmit(), 600);
+        }
         document.addEventListener("DOMContentLoaded", function() {
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             var tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {

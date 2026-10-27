@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: predictira-config
+data:
+  # nombre de workers uvicorn par pod (le modèle pèse ~270 Ko : la mémoire n'est pas le facteur limitant)
+  WEB_CONCURRENCY: "2"

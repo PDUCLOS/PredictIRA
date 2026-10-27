@@ -1,0 +1,8 @@
+# Cloud : image depuis un registre, Ingress TLS (contrôleur NGINX + cert-manager supposés installés).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: [../../base, ingress.yaml]
+images:
+  - name: predictira
+    newName: ghcr.io/pduclos/predictira
+    newTag: 2.0.0

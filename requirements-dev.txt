@@ -1,0 +1,7 @@
+-r requirements.txt
+# tests, évaluation, conversion des pickles hérités
+pytest==9.1.1
+httpx==0.28.1
+matplotlib==3.11.2
+scikit-learn==1.9.1
+joblib==1.6.0

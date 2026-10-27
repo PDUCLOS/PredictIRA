@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: predictira
+  namespace: predictira
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  ingressClassName: nginx
+  tls: [{hosts: [predictira.example.org], secretName: predictira-tls}]
+  rules:
+    - host: predictira.example.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: {service: {name: predictira-api, port: {name: http}}}

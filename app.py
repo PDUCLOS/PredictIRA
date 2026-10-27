@@ -1,24 +1,25 @@
-import joblib
+"""Application Flask PredictIRA : formulaire prérempli par département / semaine.
+
+Refonte 2026 : modèle chargé sans pickle (predictira.model), semaine encodée côté serveur,
+variables manquantes ou non numériques refusées au lieu d'être silencieusement remplacées par NaN.
+"""
+from pathlib import Path
+
 import pandas as pd
-import numpy as np
-from math import cos, pi
-from flask import Flask, render_template, request, jsonify
- 
+from flask import Flask, jsonify, render_template, request
+from pydantic import ValidationError
+
+from predictira.data import DEPARTEMENTS, load_dataset, lookup
+from predictira.model import IRAModel
+from predictira.schemas import Features
+
+ROOT = Path(__file__).resolve().parent
+
 app = Flask(__name__)
- 
-# Charger le fichier CSV
-csv_path = "df_Test_Indust.csv"
-df = pd.read_csv(csv_path)
- 
-# Charger le modèle Machine Learning
-model_path = "lightgbm_model_ML_OK.pkl"
-try:
-    with open(model_path, "rb") as file:
-        model = joblib.load(file)
-    print("Modèle chargé avec succès")
-except (FileNotFoundError, joblib.externals.loky.process_executor.TerminatedWorkerError) as e:
-    print(f"Erreur lors du chargement du modèle : {e}")
- 
+
+df = load_dataset(ROOT)
+model = IRAModel.from_repo(ROOT)
+
 features = [
     {"name": "SYM1", "category": "symptomes", "label": "Symptome Douleur thoracique :", "tooltip": "Tendance de recherche des mots Douleur thoracique sur Google"},
     {"name": "SYM22", "category": "symptomes", "label": "Symptome Faiblesse :", "tooltip": "Tendance de recherche du mot Faiblesse sur Google"},
@@ -45,66 +46,42 @@ features = [
     {"name": "week_cos", "category": "entete", "label": "Cosinus de la semaine :", "tooltip": "Transformation de la semaine sous forme trigonométrique"},
     {"name": "year", "category": "entete", "label": "Année :", "tooltip": "Année de la prédiction"}
 ]
- 
-# Extraire uniquement les noms des features pour éviter les erreurs
+
 feature_names = [f["name"] for f in features]
- 
-# Route principale qui affiche la page HTML avec le formulaire
+assert feature_names == model.features
+
+
 @app.route("/")
 def home():
     return render_template("homepage.html")
- 
+
+
 @app.route("/predict")
 def predict_page():
-    return render_template("prediction.html", features=features, data=df.to_dict(orient="records"))
- 
-# API pour récupérer les valeurs du CSV selon l'année, la semaine et le département
+    return render_template("prediction.html", features=features, departements=DEPARTEMENTS)
+
+
+# Valeurs du jeu de démonstration pour un département / une année / une semaine
 @app.route("/get_data/<int:dept>/<int:year>/<int:week>")
-def get_data(year, week, dept):
-    week_cos = cos(2 * pi * week / 52)
-    print (week_cos)
-    # Filtrer le DataFrame
-    filtered_df = df[(df["year"] == year) & (df["week_cos"] == week_cos) & (df["dept"] == dept)]
-    print (filtered_df)
- 
-    if not filtered_df.empty:
-        # Retourner la première correspondance
-        return jsonify(filtered_df.iloc[0].to_dict())
-    return jsonify({"error": "Aucune donnée trouvée pour ces paramètres"})
- 
+def get_data(dept, year, week):
+    row = lookup(df, dept, year, week)
+    if row is None:
+        return jsonify({"error": "Aucune donnée trouvée pour ces paramètres"}), 404
+    return jsonify(row)
+
+
 @app.route("/predict", methods=["POST"])
 def predict():
+    missing = [f for f in feature_names if not request.form.get(f)]
+    if missing:
+        return jsonify({"error": f"Features manquantes : {missing}"}), 400
     try:
-        # Récupérer les valeurs du formulaire et les afficher
-        input_data = {feature: request.form.get(feature) for feature in feature_names}
- 
-        # Vérifier les features manquantes
-        missing_features = [f for f in feature_names if f not in input_data]
-        if missing_features:
-            print("Features manquantes :", missing_features)
-            return jsonify({"error": f"Features manquantes : {missing_features}"})
- 
-        # Conversion en DataFrame et en float puis standardisation
-        input_df = pd.DataFrame([input_data])
-        input_df = input_df.astype('float64')
-  
-        if input_df.shape[1] != len(feature_names):
-            return jsonify({"error": f"Nombre de features incorrect : {input_df.shape[1]} au lieu de {len(feature_names)}."})
- 
-        # Vérifier les types de données avant la standardisation
-        for column in input_df.columns:
-            if not np.issubdtype(input_df[column].dtype, np.number):
-                return jsonify({"error": f"Type de donnée incorrect pour la feature : {column}"})
- 
-        scaler = joblib.load('standard_scaler.pkl')
-        input_df = scaler.transform(input_df)
+        data = Features(**{f: request.form[f] for f in feature_names})
+    except ValidationError as e:
+        return jsonify({"error": "; ".join(f"{err['loc'][0]} : {err['msg']}" for err in e.errors())}), 422
+    prediction = float(model.predict_frame(pd.DataFrame([data.model_dump()]))[0])
+    return jsonify({"prediction": round(prediction, 2)})
 
-        # Faire la prédiction avec le modèle
-        prediction = model.predict(input_df)[0]
-        return jsonify({"prediction": round(prediction, 2)})
- 
-    except (ValueError, KeyError, TypeError) as e:
-        return jsonify({"error": str(e)})
- 
+
 if __name__ == "__main__":
-    app.run() 
+    app.run(port=5050)

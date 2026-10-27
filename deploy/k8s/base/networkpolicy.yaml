@@ -1,0 +1,12 @@
+# L'API n'appelle aucun service externe : seul le trafic entrant HTTP est autorisé.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: predictira-api
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: predictira}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - ports: [{port: 8000, protocol: TCP}]
+  egress: []

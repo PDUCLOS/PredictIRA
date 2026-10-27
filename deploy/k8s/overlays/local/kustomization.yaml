@@ -1,0 +1,16 @@
+# Docker Desktop / kind : 1 réplique, image locale, service exposé en NodePort.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: [../../base]
+patches:
+  - target: {kind: Deployment, name: predictira-api}
+    patch: |
+      - {op: replace, path: /spec/replicas, value: 1}
+  - target: {kind: HorizontalPodAutoscaler, name: predictira-api}
+    patch: |
+      - {op: replace, path: /spec/minReplicas, value: 1}
+      - {op: replace, path: /spec/maxReplicas, value: 2}
+  - target: {kind: Service, name: predictira-api}
+    patch: |
+      - {op: add, path: /spec/type, value: NodePort}
+      - {op: add, path: /spec/ports/0/nodePort, value: 30765}
