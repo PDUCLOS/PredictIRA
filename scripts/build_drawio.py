@@ -145,9 +145,9 @@ def page_audit():
     p = Page("audit", "4. Audit 2026 : constats et corrections", 1400, 720)
     p.text(40, 20, 1300, 30, "Ce que la remise en route a révélé — et ce qui a été corrigé", 18, True)
     rows = [
-        ("Semaines S27 → S39 : l'ancien /get_data filtrait sur week_cos ; cos(2π·s/52) est identique pour s et 52 − s, "
-         "le formulaire était prérempli avec la semaine S25 → S13",
-         "Semaine reconstruite par le rang puis contrôlée par le cosinus ; test de régression"),
+        ("Préremplissage par égalité exacte du cosinus de la semaine : 9 semaines sur 39 sans résultat (arrondi flottant), "
+         "S27 et S29 chargeaient S25 et S23 (même cosinus pour s et 52 − s)",
+         "Semaine reconstruite par le rang puis contrôlée par le cosinus ; un test rejoue l'ancien filtre sur les 39 semaines"),
         ("Champ caché week_cos rempli avec le numéro brut de la semaine (ex. 10) quand le préremplissage échouait",
          "Cosinus calculé dans le navigateur ; erreur 404 affichée à l'utilisateur"),
         ("Département 63 proposé dans l'interface mais absent des données",

@@ -16,6 +16,27 @@
   </p>
 </p>
 
+## Version 2 (octobre 2026) — mesurée, corrigée, déployable
+
+| | |
+|---|---|
+| **Mesure** (2024-S01→S39, 11 départements, 429 semaines hors entraînement) | MAE 41,2 passages/semaine · R² 0,926 · persistance S-1 : MAE 39,5 · moyenne des deux : MAE 30,6 |
+| **Inférence** | 0,43 ms par ligne (p50, CPU) · 7,05 ms par requête HTTP locale |
+| **Qualité** | 13 tests pytest · 6 défauts reproduits et corrigés · modèle chargé sans pickle |
+| **Déploiement** | Dockerfile · `deploy/k8s` (kustomize, overlays local et cloud) |
+
+```bash
+python -m venv .venv && .venv/Scripts/pip install -r requirements-dev.txt
+python -m pytest -q
+python -m uvicorn predictira.api:app --port 18765   # interface : / · API : /api/docs
+python scripts/evaluate.py                          # → docs/metrics.json
+```
+
+Détails, limites et ce qui n'a pas pu être vérifié : [docs/PORTFOLIO.md](docs/PORTFOLIO.md) · vitrine : [docs/index.html](docs/index.html) ·
+schémas : [docs/architecture.drawio](docs/architecture.drawio).
+
+La documentation ci-dessous est celle du projet d'origine (lancement : `python app.py`, désormais sur le port 5050).
+
 <!-- TABLE OF CONTENTS -->
 ## Table des matières
 

@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PredictIRA — urgences respiratoires</title>
+<meta name="description" content="PredictIRA : estimation hebdomadaire des passages aux urgences pour infections respiratoires aiguës par département. LightGBM, API FastAPI validée, Kubernetes, évaluation honnête sur 2024.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Identité « santé publique » : sarcelle (soins) + corail (alerte épidémique). Colonne de lecture 1080 px. */
+:root {
+  --bg: #f3f6f6; --surface: #ffffff; --ink: #122326; --muted: #52676b; --line: #d6e0e1;
+  --accent: #0f766e; --accent-ink: #ffffff; --accent-soft: #dcf1ee;
+  --alert: #c2410c; --alert-soft: #fde9dd;
+  --good: #1f7a4d; --good-soft: #e1f2e8; --warn: #9a6200; --warn-soft: #fbefd9; --bad: #b3261e; --bad-soft: #fbe3e1;
+  --hero: #0b2a2c; --hero-ink: #e6f2f1; --hero-muted: #9fbcbc;
+  --code-bg: #0d1b1d; --code-ink: #d9ece9;
+  --f-display: "Source Serif 4", Georgia, serif;
+  --f-body: "Source Sans 3", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c1415; --surface: #142022; --ink: #e3eeed; --muted: #9db3b3; --line: #253638;
+  --accent: #4fd1c0; --accent-ink: #0c1415; --accent-soft: #17393a; --alert: #fb9a6a; --alert-soft: #3a2316;
+  --good: #5cc78f; --good-soft: #14301f; --warn: #e3a948; --warn-soft: #33270f; --bad: #f08079; --bad-soft: #3a1a18;
+  --hero: #071b1c; --code-bg: #071112; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0c1415; --surface: #142022; --ink: #e3eeed; --muted: #9db3b3; --line: #253638;
+  --accent: #4fd1c0; --accent-ink: #0c1415; --accent-soft: #17393a; --alert: #fb9a6a; --alert-soft: #3a2316;
+  --good: #5cc78f; --good-soft: #14301f; --warn: #e3a948; --warn-soft: #33270f; --bad: #f08079; --bad-soft: #3a1a18;
+  --hero: #071b1c; --code-bg: #071112; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.62 var(--f-body); }
+img, video { max-width: 100%; height: auto; display: block; }
+a { color: var(--accent); text-underline-offset: 3px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+h2 { font-size: clamp(1.55rem, 3.2vw, 2.05rem); line-height: 1.18; }
+h3 { font-size: 1.12rem; line-height: 1.3; }
+p { margin: 0; }
+code { font-family: var(--f-mono); font-size: .84em; background: var(--accent-soft); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
+pre { margin: 0; background: var(--code-bg); color: var(--code-ink); padding: 16px 18px; border-radius: 8px; overflow-x: auto; font: 13.5px/1.55 var(--f-mono); }
+pre code { background: none; padding: 0; font-size: inherit; color: inherit; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-left, 0px)); }
+
+nav.top { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--hero) 94%, transparent); backdrop-filter: blur(6px); }
+nav.top .wrap { display: flex; gap: 18px; align-items: center; overflow-x: auto; white-space: nowrap; padding-top: 10px; padding-bottom: 10px; }
+nav.top a { color: var(--hero-muted); text-decoration: none; font-size: .92rem; }
+nav.top a:hover { color: var(--hero-ink); }
+nav.top .brand { color: var(--hero-ink); font-weight: 700; font-family: var(--f-display); margin-right: 6px; }
+
+header.hero { background: var(--hero); color: var(--hero-ink); padding: 56px 0 64px; }
+.kicker { text-transform: uppercase; letter-spacing: .12em; font-size: .8rem; color: #5eead4; font-weight: 600; }
+header.hero h1 { font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.08; margin: 12px 0 18px; }
+header.hero h1 em { font-style: normal; color: #fdba74; }
+header.hero .lead { max-width: 760px; color: var(--hero-muted); font-size: 1.12rem; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-top: 34px; }
+.kpi { border: 1px solid #1f4a4c; border-radius: 10px; padding: 14px 16px; background: #0f3335; }
+.kpi b { display: block; font: 700 1.75rem/1.1 var(--f-display); color: #fff; }
+.kpi span { color: var(--hero-muted); font-size: .9rem; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.btn { display: inline-block; padding: 10px 16px; border-radius: 8px; background: #5eead4; color: #062022; font-weight: 700; text-decoration: none; }
+.btn.ghost { background: transparent; color: var(--hero-ink); border: 1px solid #3c6b6c; }
+
+section { padding: 64px 0; border-bottom: 1px solid var(--line); }
+section .intro { color: var(--muted); max-width: 780px; margin: 12px 0 28px; font-size: 1.06rem; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+.card h3 { margin-bottom: 8px; }
+.card p, .card li { color: var(--muted); }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+figure img { width: 100%; }
+figcaption { padding: 10px 14px; font-size: .9rem; color: var(--muted); border-top: 1px solid var(--line); }
+.video { background: #000; border-radius: 12px; overflow: hidden; }
+.steps { counter-reset: s; display: grid; gap: 12px; padding: 0; margin: 0; list-style: none; }
+.steps li { counter-increment: s; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px 14px 60px; position: relative; }
+.steps li::before { content: counter(s); position: absolute; left: 16px; top: 14px; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; }
+.steps li b { display: block; }
+.steps li span { color: var(--muted); }
+.tbl { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: .95rem; }
+.tbl th, .tbl td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--line); }
+.tbl th:first-child, .tbl td:first-child { text-align: left; }
+.tbl thead th { background: var(--accent-soft); font-weight: 700; }
+.tbl tr.best td { background: var(--good-soft); font-weight: 600; }
+.tbl tr.bad td { background: var(--bad-soft); }
+.tblwrap { overflow-x: auto; }
+.note { border-left: 4px solid var(--accent); background: var(--accent-soft); padding: 14px 16px; border-radius: 0 10px 10px 0; margin-top: 20px; }
+.note.alert { border-color: var(--alert); background: var(--alert-soft); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.pair > div { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.pair > div:nth-child(odd) { background: var(--bad-soft); }
+.pair > div:nth-child(even) { background: var(--good-soft); }
+.pair .h { font-weight: 700; background: var(--surface) !important; }
+@media (max-width: 640px) { .pair { grid-template-columns: 1fr; } .pair .h:nth-child(2) { display: none; } }
+dl.gloss { display: grid; grid-template-columns: minmax(140px, 220px) 1fr; gap: 10px 20px; margin: 0; }
+dl.gloss dt { font-weight: 700; }
+dl.gloss dd { margin: 0; color: var(--muted); }
+@media (max-width: 640px) { dl.gloss { grid-template-columns: 1fr; } dl.gloss dd { margin-bottom: 8px; } }
+footer { padding: 36px 0 60px; color: var(--muted); font-size: .92rem; }
+.tag { display: inline-block; font-size: .78rem; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-weight: 600; margin: 0 6px 6px 0; }
+</style>
+</head>
+<body>
+<nav class="top" aria-label="Sommaire"><div class="wrap">
+  <span class="brand">PredictIRA</span>
+  <a href="#video">Vidéo</a><a href="#probleme">Le problème</a><a href="#demo">Démo</a>
+  <a href="#fonctionnement">Fonctionnement</a><a href="#resultats">Résultats</a><a href="#audit">Audit</a>
+  <a href="#architecture">Architecture</a><a href="#kubernetes">Kubernetes</a><a href="#limites">Limites</a><a href="#lancer">Lancer</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="kicker">ML santé publique · projet d'équipe repris et industrialisé</div>
+  <h1>Estimer la charge des urgences <em>respiratoires</em>, semaine par semaine</h1>
+  <p class="lead">PredictIRA estime le nombre de passages aux urgences pour infections respiratoires aiguës (IRA)
+  dans chaque département, à partir des recherches Google, de la qualité de l'air, de la météo et de l'indice grippal.
+  En 2026, le projet a été relancé, mesuré sur des semaines jamais vues, corrigé et rendu déployable.</p>
+  <div class="kpis">
+    <div class="kpi"><b>R² 0,926</b><span>sur 2024-S01→S39, 429 semaines hors entraînement</span></div>
+    <div class="kpi"><b>MAE 41</b><span>passages / semaine (moyenne observée : 257)</span></div>
+    <div class="kpi"><b>0,43 ms</b><span>inférence d'une ligne (p50, CPU)</span></div>
+    <div class="kpi"><b>6</b><span>défauts reproduits, corrigés ou documentés · 13 tests</span></div>
+  </div>
+  <div class="cta">
+    <a class="btn" href="https://github.com/PDUCLOS/PredictIRA/tree/feat/vitrine-predictira">Code source</a>
+    <a class="btn ghost" href="#resultats">Voir les mesures</a>
+  </div>
+</div></header>
+
+<main>
+<section id="video"><div class="wrap">
+  <h2>Le projet en vidéo</h2>
+  <p class="intro">Deux minutes pour comprendre le besoin, le modèle, les mesures et ce qui a été corrigé. Narration de synthèse vocale.</p>
+  <div class="video"><video controls preload="none" poster="video/poster.png" src="video/predictira.mp4" width="1280" height="720"></video></div>
+</div></section>
+
+<section id="probleme"><div class="wrap">
+  <h2>Chaque hiver, les urgences saturent par vagues</h2>
+  <p class="intro">Bronchiolite, grippe, COVID : les infections respiratoires aiguës remplissent les urgences en quelques semaines.
+  Savoir combien de patients arrivent, département par département, aide à dimensionner les équipes et les lits.</p>
+  <div class="grid3">
+    <div class="card"><h3>Le besoin</h3><p>Une estimation hebdomadaire par département, lisible par un cadre de santé, sans compétence en data science.</p></div>
+    <div class="card"><h3>Les signaux</h3><p>Ce que les gens cherchent sur Google (toux, fièvre, essoufflement…), la pollution, la météo et l'indice grippal de la semaine.</p></div>
+    <div class="card"><h3>La difficulté</h3><p>Le Rhône compte 10 fois plus de passages que le Cantal ; l'hiver multiplie les chiffres par 3 ou 4. Un modèle doit tenir sur ces deux échelles.</p></div>
+  </div>
+</div></section>
+
+<section id="demo"><div class="wrap">
+  <h2>Captures prises sur la machine de démonstration</h2>
+  <p class="intro">Application lancée le 27 octobre 2026 sous Windows 11 (Python 3.12, uvicorn). Les valeurs affichées sont celles du serveur, sans retouche.</p>
+  <div class="grid2">
+    <figure><img src="img/cap_prediction.png" alt="Formulaire PredictIRA prérempli pour le Rhône, semaine 5 de 2024 : 1363,57 passages prédits, 1738 observés" loading="lazy" width="1400" height="2100">
+      <figcaption>Rhône, 2024-S05 : le formulaire est prérempli depuis les données. Prédiction 1 364, observé 1 738 — un pic hivernal sous-estimé, montré tel quel.</figcaption></figure>
+    <div style="display:grid;gap:20px;align-content:start">
+      <figure><img src="img/cap_swagger.png" alt="Documentation Swagger de l'API PredictIRA" loading="lazy" width="1400" height="1000">
+        <figcaption>L'API FastAPI ajoutée : <code>/api/predict</code>, lot, données, départements — schéma validé par Pydantic.</figcaption></figure>
+      <figure><img src="img/cap_accueil.png" alt="Page d'accueil de l'application PredictIRA" loading="lazy" width="1400" height="900">
+        <figcaption>L'interface historique de l'équipe, conservée et servie dans le même conteneur.</figcaption></figure>
+    </div>
+  </div>
+</div></section>
+
+<section id="fonctionnement"><div class="wrap">
+  <h2>D'un tableau hebdomadaire à une estimation, en cinq étapes</h2>
+  <p class="intro">Le modèle ne regarde pas l'avenir : il estime la semaine en cours à partir de signaux disponibles plus vite que les statistiques hospitalières consolidées.</p>
+  <ol class="steps">
+    <li><b>Une ligne par département et par semaine</b><span>24 variables : 12 tendances Google de symptômes, 6 polluants, pression, température, indice grippal, département, année, semaine.</span></li>
+    <li><b>La semaine devient un angle</b><span><code>week_cos = cos(2π·s/52)</code> rapproche la semaine 52 de la semaine 1. Revers découvert à l'audit : sans sinus, les semaines s et 52 − s ont le même code (S29 et S23, par exemple).</span></li>
+    <li><b>Mise à l'échelle</b><span>Chaque variable est centrée-réduite avec les moyennes de l'entraînement (2 733 lignes), désormais stockées en JSON lisible.</span></li>
+    <li><b>LightGBM</b><span>100 arbres de décision, taux d'apprentissage 0,06, régularisation L1 = L2 = 2. Les variables qui pèsent le plus : le département (31,5 % du gain), le NO₂ (25,5 %), la pression (7,4 %), l'indice grippal (7,0 %).</span></li>
+    <li><b>Service</b><span>Formulaire Flask pour l'humain, API JSON pour les systèmes, même modèle, même validation.</span></li>
+  </ol>
+  <figure style="margin-top:24px"><img src="img/architecture-2.png" alt="Schéma : sources, table hebdomadaire, scaler, LightGBM, évaluation" loading="lazy" width="2000" height="1080">
+    <figcaption>Données, modèle et évaluation (page 2 de <code>docs/architecture.drawio</code>).</figcaption></figure>
+</div></section>
+
+<section id="resultats"><div class="wrap">
+  <h2>Mesuré sur 2024, comparé à une référence naïve</h2>
+  <p class="intro">Le dépôt ne publiait aucune métrique. Le jeu <code>df_Test_Indust.csv</code> couvre 2024-S01 → S39 pour 11 départements d'Auvergne-Rhône-Alpes ;
+  le scaler livré a été ajusté sur des données de moyenne 2021,9 : ces 429 semaines sont un découpage temporel naturel.
+  Toute mesure sérieuse doit battre la <b>persistance</b> : « cette semaine = la semaine dernière ».</p>
+  <div class="tblwrap"><table class="tbl">
+    <thead><tr><th>Modèle (2024-S01→S39, 429 lignes)</th><th>MAE</th><th>RMSE</th><th>R²</th><th>WAPE</th><th>Biais</th></tr></thead>
+    <tbody>
+      <tr><td>LightGBM 24 variables (application Flask)</td><td>41,2</td><td>69,5</td><td>0,926</td><td>16,1 %</td><td>−2,5</td></tr>
+      <tr><td>Persistance S-1 (référence naïve)</td><td>39,5</td><td>67,8</td><td>0,930</td><td>15,4 %</td><td>+11,4</td></tr>
+      <tr class="best"><td>Moyenne 50/50 modèle + persistance (exploratoire)</td><td>30,6</td><td>50,0</td><td>0,962</td><td>11,9 %</td><td>+4,5</td></tr>
+      <tr class="bad"><td>LightGBM 28 variables (dépôt « industrialisation »)</td><td>510,3</td><td>534,7</td><td>−3,358</td><td>198,8 %</td><td>+487,5</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note alert"><b>Lecture honnête.</b> Seul, le modèle ne bat pas la persistance sur l'ensemble de la période (MAE 41,2 contre 39,5).
+  Il fait mieux en hiver (S01–S13 : 65,9 contre 68,7) et moins bien au printemps-été (28,9 contre 24,9).
+  Ses erreurs sont complémentaires : la simple moyenne des deux, sans aucun paramètre ajusté, réduit la MAE de 26 %.
+  Piste retenue : réentraîner avec la valeur de la semaine précédente comme variable.</div>
+  <div class="grid2" style="margin-top:24px">
+    <figure><img src="img/eval_series.png" alt="Séries 2024 observées et prédites pour le Rhône, l'Isère et le Cantal" loading="lazy" width="1650" height="462">
+      <figcaption>Rhône, Isère, Cantal : le modèle anticipe mieux la reprise de fin septembre (S38–S39) que la persistance, mais réagit trop sur les petits départements.</figcaption></figure>
+    <figure><img src="img/eval_scatter.png" alt="Nuage observé contre prédit" loading="lazy" width="572" height="550">
+      <figcaption>Observé contre prédit, 429 semaines. MAE par département : de 16,4 (Cantal) à 121,3 (Rhône).</figcaption></figure>
+  </div>
+  <div class="grid3" style="margin-top:20px">
+    <div class="card"><h3>0,43 ms</h3><p>Inférence d'une ligne, p50 (p95 0,66 ms), Ryzen 9 3900X, Python 3.12.</p></div>
+    <div class="card"><h3>0,88 ms</h3><p>Les 429 lignes de 2024 en un seul lot (p50).</p></div>
+    <div class="card"><h3>7,05 ms</h3><p>Requête HTTP complète <code>POST /api/predict</code> en local, p50 sur 500 appels (p95 8,89 ms).</p></div>
+  </div>
+</div></section>
+
+<section id="audit"><div class="wrap">
+  <h2>Ce que la remise en route a révélé</h2>
+  <p class="intro">Relancer un projet de formation sur une machine neuve, c'est le meilleur des audits. Six constats, tous reproduits, tous corrigés ou documentés.</p>
+  <div class="pair">
+    <div class="h">Constat</div><div class="h">Correction</div>
+    <div>Préremplissage : la ligne était cherchée par égalité exacte du cosinus de la semaine. Rejoué sur 2024 : 9 semaines sur 39 ne trouvaient rien (arrondi flottant), et S27, S29 chargeaient S25, S23 (même cosinus pour s et 52 − s).</div>
+    <div>Semaine reconstruite par le rang puis contrôlée par le cosinus. Un test rejoue l'ancien filtre sur les 39 semaines.</div>
+    <div>Si le préremplissage échouait, le champ caché <code>week_cos</code> gardait le numéro de semaine brut (10 au lieu de 0,35).</div>
+    <div>Cosinus calculé dans le navigateur, erreur 404 affichée.</div>
+    <div>Le Puy-de-Dôme (63) était proposé alors qu'il n'existe pas dans les données.</div>
+    <div>Liste des départements générée depuis les données.</div>
+    <div>Champ vide : converti en NaN, et une prédiction était quand même renvoyée.</div>
+    <div>Validation Pydantic : 24 champs obligatoires, bornes physiques, champs inconnus refusés (400 / 422).</div>
+    <div>Le client HTML du dépôt « industrialisation » envoie 5 variables que le modèle ne connaît pas et en oublie 5 : LightGBM prédit par position (1 115 passages, valeur sans signification).</div>
+    <div>Constat reproduit et documenté. L'API v2 refuse tout champ inconnu.</div>
+    <div>Modèles livrés en pickle : charger un pickle peut exécuter du code.</div>
+    <div>Désassemblage <code>pickletools</code>, chargement sous liste blanche de classes, export en texte LightGBM + JSON.</div>
+  </div>
+</div></section>
+
+<section id="architecture"><div class="wrap">
+  <h2>Un conteneur, deux portes d'entrée, un modèle</h2>
+  <p class="intro">L'interface Flask de l'équipe est montée dans l'application FastAPI : un seul processus uvicorn, une seule image, une seule validation.</p>
+  <figure><img src="img/architecture-1.png" alt="Architecture applicative de PredictIRA" loading="lazy" width="1980" height="820">
+    <figcaption>Page 1 de <code>docs/architecture.drawio</code>.</figcaption></figure>
+  <pre style="margin-top:20px"><code># predictira/model.py — le modèle sans pickle
+@classmethod
+def from_repo(cls, root: str | Path) -&gt; "IRAModel":
+    root = Path(root)
+    booster = lgb.Booster(model_file=str(root / "models" / "lightgbm_ira_24var.txt"))
+    sc = json.loads((root / "models" / "scaler_24var.json").read_text(encoding="utf-8"))
+    if sc["features"] != booster.feature_name():
+        raise ValueError("Le scaler et le modèle n'ont pas les mêmes variables")
+    return cls(booster, sc["features"], np.array(sc["mean"]), np.array(sc["scale"]))</code></pre>
+</div></section>
+
+<section id="kubernetes"><div class="wrap">
+  <h2>Prêt pour un cluster</h2>
+  <p class="intro"><code>deploy/k8s</code> suit le modèle kustomize « base + overlays ». Le rendu des trois variantes est validé par <code>kubectl kustomize</code> (7, 7 et 8 objets).
+  L'image Docker n'a pas pu être construite pendant cette session (moteur Docker arrêté) : son contenu a été rejoué dans un environnement Python vierge.</p>
+  <figure><img src="img/architecture-3.png" alt="Déploiement Kubernetes de PredictIRA" loading="lazy" width="1980" height="890">
+    <figcaption>Pods non-root, système de fichiers en lecture seule, HPA 2→6, PDB, NetworkPolicy sans sortie.</figcaption></figure>
+</div></section>
+
+<section id="limites"><div class="wrap">
+  <h2>Limites, dites franchement</h2>
+  <div class="grid2">
+    <div class="card"><h3>Ce que le modèle n'est pas</h3><ul>
+      <li>Une prévision à J+7 : il utilise les signaux de la semaine estimée (nowcasting).</li>
+      <li>Meilleur que la persistance seule sur 2024 (MAE 41,2 contre 39,5).</li>
+      <li>Généralisable hors des 11 départements d'Auvergne-Rhône-Alpes présents dans les données.</li>
+    </ul></div>
+    <div class="card"><h3>Ce qui n'a pas pu être vérifié</h3><ul>
+      <li>Les données et le code d'entraînement d'origine ne sont pas dans les dépôts : le modèle n'a pas été réentraîné.</li>
+      <li>La provenance exacte des colonnes (aucune source citée par le projet) ; aucun téléchargement effectué.</li>
+      <li><code>docker build</code> et déploiement réel sur un cluster.</li>
+    </ul></div>
+  </div>
+</div></section>
+
+<section id="glossaire"><div class="wrap">
+  <h2>Les mots du projet</h2>
+  <dl class="gloss" style="margin-top:20px">
+    <dt>IRA</dt><dd>Infection respiratoire aiguë : grippe, bronchiolite, COVID, pneumopathie…</dd>
+    <dt>Persistance</dt><dd>Prévision naïve « comme la semaine dernière ». Un modèle qui ne la bat pas n'apporte rien de plus.</dd>
+    <dt>MAE / WAPE</dt><dd>Erreur absolue moyenne, en passages ; WAPE = même erreur rapportée au total observé.</dd>
+    <dt>R²</dt><dd>Part de la variabilité expliquée (1 = parfait, 0 = pas mieux que la moyenne, négatif = pire).</dd>
+    <dt>Nowcasting</dt><dd>Estimer le présent avant que les statistiques officielles soient consolidées.</dd>
+    <dt>LightGBM</dt><dd>Gradient boosting d'arbres de décision : rapide, robuste sur des données tabulaires.</dd>
+    <dt>Pickle</dt><dd>Format de sérialisation Python ; le charger peut exécuter du code, d'où l'export en texte.</dd>
+  </dl>
+</div></section>
+
+<section id="lancer"><div class="wrap">
+  <h2>Lancer en local en quatre commandes</h2>
+  <pre style="margin-top:20px"><code>git clone -b feat/vitrine-predictira https://github.com/PDUCLOS/PredictIRA.git &amp;&amp; cd PredictIRA
+python -m venv .venv &amp;&amp; .venv/Scripts/pip install -r requirements-dev.txt
+python -m pytest -q                      # 13 tests
+python -m uvicorn predictira.api:app --port 18765   # http://127.0.0.1:18765/  et  /api/docs</code></pre>
+  <p style="margin-top:14px">Rejouer les mesures : <code>python scripts/evaluate.py</code> → <code>docs/metrics.json</code>.</p>
+  <p style="margin-top:20px"><span class="tag">LightGBM</span><span class="tag">FastAPI</span><span class="tag">Pydantic</span><span class="tag">Flask</span><span class="tag">pytest</span><span class="tag">Docker</span><span class="tag">Kubernetes</span><span class="tag">kustomize</span><span class="tag">draw.io</span></p>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  Projet d'équipe M2i : Sarra Abbassi, Mohammed Abusarar, Patrice Duclos, Yannick Repillez. Reprise, mesures et industrialisation 2026 : Patrice Duclos.
+  Chiffres issus de <code>docs/metrics.json</code>, mesurés le 27 octobre 2026.
+</div></footer>
+</body>
+</html>

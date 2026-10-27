@@ -100,12 +100,37 @@ def test_published_metrics_regression_guard():
     # constat documenté : la persistance S-1 reste une référence très forte
     assert m["reference_persistance_S-1"]["MAE"] < 45
 
-def test_original_cos_lookup_was_ambiguous():
-    """Régression : l'ancien /get_data filtrait sur week_cos == cos(2π·w/52) et renvoyait
-    la 1re ligne trouvée — pour S27→S39 c'était la semaine 52-w (S25→S13)."""
-    w = 30
-    sub = dataset[(dataset.dept == 69) & (dataset.year == 2024)
-                  & np.isclose(dataset.week_cos, week_cos(w))]
-    assert sorted(sub.week) == [22, 30]
-    assert sub.iloc[0].week == 22  # ce que l'ancienne version renvoyait
-    assert client.get(f"/get_data/69/2024/{w}").json()["week"] == 30  # version corrigée
+def test_original_cos_lookup_regression():
+    """Régression : l'ancien /get_data filtrait sur l'égalité exacte week_cos == cos(2π·w/52)
+    et renvoyait la 1re ligne trouvée. Rejoué sur 2024-S01→S39 (identique pour les 11
+    départements) : 9 semaines sans résultat (arrondi flottant), S27 → S25 et S29 → S23
+    (cos(2π·w/52) = cos(2π·(52-w)/52)). La version corrigée renvoie toujours la bonne semaine."""
+    from math import cos, pi
+
+    vides, fausses = [], {}
+    for w in range(1, 40):
+        old = dataset[(dataset.year == 2024) & (dataset.dept == 69) & (dataset.week_cos == cos(2 * pi * w / 52))]
+        if old.empty:
+            vides.append(w)
+        elif old.iloc[0].week != w:
+            fausses[w] = int(old.iloc[0].week)
+        assert client.get(f"/get_data/69/2024/{w}").json()["week"] == w  # version corrigée
+    assert vides == [10, 11, 14, 16, 23, 28, 37, 38, 39]
+    assert fausses == {27: 25, 29: 23}
+
+
+def test_safe_load_rejects_forbidden_class(tmp_path):
+    """Un pickle qui appellerait os.system doit être refusé par la liste blanche."""
+    import pickle
+
+    from predictira.safe_load import safe_joblib_load
+
+    class Evil:
+        def __reduce__(self):
+            import os
+            return (os.system, ("echo pwned",))
+
+    p = tmp_path / "evil.pkl"
+    p.write_bytes(pickle.dumps(Evil()))
+    with pytest.raises(pickle.UnpicklingError, match="interdite"):
+        safe_joblib_load(str(p))
